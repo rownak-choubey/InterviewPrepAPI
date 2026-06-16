@@ -10,6 +10,21 @@ builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddFileLogger(Path.Combine(builder.Environment.ContentRootPath, "logs"));
 
+if (builder.Environment.IsProduction())
+{
+    var vaultId = builder.Configuration["Oci:VaultId"];
+    if (!string.IsNullOrEmpty(vaultId))
+    {
+        builder.Configuration.AddOciSecrets(vaultId, new Dictionary<string, string>
+        {
+            ["connectionstrings__defaultconnection"] = "ConnectionStrings:DefaultConnection",
+            ["connectionstrings__password"] = "ConnectionStrings:Password",
+            ["jwtsettings__secretkey"] = "JwtSettings:SecretKey",
+            ["email__password"] = "Email:Password"
+        });
+    }
+}
+
 builder.Services
     .AddAppLocalization()
     .AddDatabase(builder.Configuration)

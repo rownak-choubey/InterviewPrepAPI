@@ -70,8 +70,13 @@ jobs:
 
             cd /home/${{ secrets.ORACLE_VM_USER }}/interviewprep
 
-            # Write .env file from GitHub secret (base64 encoded)
-            echo "${{ secrets.ORACLE_ENV_BASE64 }}" | base64 -d > .env
+            # Write required .env vars (non-sensitive — secrets come from OCI Vault)
+            cat > .env << EOF
+            POSTGRES_DB=${{ vars.POSTGRES_DB }}
+            POSTGRES_USER=${{ vars.POSTGRES_USER }}
+            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            OCI_VAULT_ID=${{ vars.OCI_VAULT_ID }}
+            EOF
 
             # Login to ghcr.io
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
