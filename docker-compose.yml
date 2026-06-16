@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: interviewprep-db
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-interviewprep_db}
+      POSTGRES_USER: ${POSTGRES_USER:-interviewprep}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Must set POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-interviewprep} -d ${POSTGRES_DB:-interviewprep_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-your-org}/interviewprep-api:latest
+    container_name: interviewprep-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=db;Port=5432;Database=${POSTGRES_DB:-interviewprep_db};Username=${POSTGRES_USER:-interviewprep};Password=${POSTGRES_PASSWORD:?Must set POSTGRES_PASSWORD}
+      ConnectionStrings__Password: ${POSTGRES_PASSWORD:?Must set POSTGRES_PASSWORD}
+      JwtSettings__SecretKey: ${JWT_SECRET_KEY:?Must set JWT_SECRET_KEY}
+      JwtSettings__Issuer: ${JWT_ISSUER:-InterviewPrepAPI}
+      JwtSettings__Audience: ${JWT_AUDIENCE:-InterviewPrepApp}
+      JwtSettings__AccessTokenExpirationMinutes: ${JWT_ACCESS_EXPIRATION:-15}
+      JwtSettings__RefreshTokenExpirationDays: ${JWT_REFRESH_EXPIRATION:-7}
+      AllowedOrigins__0: ${ALLOWED_ORIGIN:?Must set ALLOWED_ORIGIN}
+      Email__SmtpHost: ${SMTP_HOST:?Must set SMTP_HOST}
+      Email__SmtpPort: ${SMTP_PORT:-587}
+      Email__Username: ${SMTP_USERNAME:?Must set SMTP_USERNAME}
+      Email__Password: ${SMTP_PASSWORD:?Must set SMTP_PASSWORD}
+      Email__FromEmail: ${SMTP_FROM_EMAIL:?Must set SMTP_FROM_EMAIL}
+      Email__FromName: ${SMTP_FROM_NAME:-InterviewPrep}
+
+volumes:
+  postgres_data:
