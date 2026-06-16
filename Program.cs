@@ -17,7 +17,10 @@ if (builder.Environment.IsProduction())
     {
         builder.Configuration.AddOciSecrets(vaultId, new Dictionary<string, string>
         {
-            ["connectionstrings__defaultconnection"] = "ConnectionStrings:DefaultConnection",
+            ["connectionstrings__host"] = "ConnectionStrings:Host",
+            ["connectionstrings__port"] = "ConnectionStrings:Port",
+            ["connectionstrings__database"] = "ConnectionStrings:Database",
+            ["connectionstrings__username"] = "ConnectionStrings:Username",
             ["connectionstrings__password"] = "ConnectionStrings:Password",
             ["jwtsettings__secretkey"] = "JwtSettings:SecretKey",
             ["email__password"] = "Email:Password"

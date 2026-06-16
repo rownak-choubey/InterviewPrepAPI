@@ -17,10 +17,16 @@ public static class ServiceCollectionExtensions
     {
         services.AddDbContext<AppDbContext>(options =>
         {
-            var connectionString = config.GetConnectionString("DefaultConnection");
-            var password = config.GetConnectionString("Password");
+            var host = config.GetConnectionString("Host") ?? "localhost";
+            var port = config.GetConnectionString("Port") ?? "5432";
+            var database = config.GetConnectionString("Database") ?? "interviewprep_db";
+            var username = config.GetConnectionString("Username") ?? "interviewprep";
+            var password = config.GetConnectionString("Password") ?? "";
+
+            var connectionString = $"Host={host};Port={port};Database={database};Username={username}";
             if (!string.IsNullOrEmpty(password))
                 connectionString += $";Password={password}";
+
             options.UseNpgsql(connectionString);
         });
 
