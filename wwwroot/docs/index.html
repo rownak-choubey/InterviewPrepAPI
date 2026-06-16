@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InterviewPrep API - Auth Architecture</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/csharp.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+    <script>
+        tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','system-ui','sans-serif'],mono:['JetBrains Mono','monospace']},colors:{brand:{400:'#818cf8',500:'#6366f1',600:'#4f46e5',950:'#1e1b4b'},surface:{0:'#0a0a0f',1:'#111118',2:'#1a1a24',3:'#23232f',4:'#2d2d3a'}}}}}
+    </script>
+    <style>
+        *{scrollbar-width:thin;scrollbar-color:#2d2d3a transparent}
+        ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#2d2d3a;border-radius:3px}
+        .nav-link{transition:all .15s}.nav-link:hover,.nav-link.active{background:rgba(99,102,241,.1);color:#818cf8}
+        .gradient-text{background:linear-gradient(135deg,#818cf8,#6366f1,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+        .card-glow:hover{box-shadow:0 0 40px rgba(99,102,241,.08)}
+        pre code.hljs{background:transparent!important;padding:0!important}.hljs{background:transparent!important}
+        .sidebar-scroll{max-height:calc(100vh - 8rem);overflow-y:auto}
+        .tree{font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.8;color:#9ca3af;white-space:pre;margin:0}
+        .tree .dir{color:#818cf8;font-weight:600}.tree .file{color:#6b7280}.tree .highlight{color:#34d399;font-weight:500}
+    </style>
+</head>
+<body class="bg-surface-0 text-gray-300 font-sans antialiased">
+
+<nav class="fixed top-0 left-0 right-0 z-50 bg-surface-0/80 backdrop-blur-xl border-b border-surface-4/50">
+    <div class="max-w-screen-2xl mx-auto px-6 h-14 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center">
+                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+            </div>
+            <span class="text-white font-semibold tracking-tight">InterviewPrep API</span>
+            <span class="text-[10px] bg-brand-500/20 text-brand-400 px-2 py-0.5 rounded-full font-medium">v1.0</span>
+        </div>
+        <div class="flex items-center gap-4">
+            <a href="/api" class="text-xs text-gray-500 hover:text-white transition-colors" target="_blank">API Root</a>
+            <a href="/openapi/v1.json" class="text-xs text-gray-500 hover:text-white transition-colors" target="_blank">OpenAPI</a>
+            <span class="text-[10px] text-gray-600 font-mono">.NET 10</span>
+        </div>
+    </div>
+</nav>
+
+<div class="flex pt-14">
+<aside class="fixed left-0 top-14 bottom-0 w-56 border-r border-surface-4/50 bg-surface-0/50 hidden lg:block">
+    <div class="sidebar-scroll p-3 space-y-0.5">
+        <p class="text-[10px] font-semibold text-gray-600 uppercase tracking-wider px-2 pt-2 pb-1">Getting Started</p>
+        <a href="#overview" class="nav-link block px-2 py-1 rounded text-xs text-gray-400">Overview</a>
+        <a href="#project-structure" class="nav-link block px-2 py-1 rounded text-xs text-gray-400">Project Structure</a>
+        <a href="#architecture" class="nav-link block px-2 py-1 rounded text-xs text-gray-400">Architecture</a>
+        <p class="text-[10px] font-semibold text-gray-600 uppercase tracking-wider px-2 pt-3 pb-1">Configuration</p>
+        <a href="#config" class="nav-link block px-2 py-1 rounded text-xs text-gray-400">appsettings.json</a>
+        <a href="#program-cs" class="nav-link block px-2 py-1 rounded text-xs text-gray-400">Program.cs</a>
+        <p class="text-[10px] font-semibold text-gray-600 uppercase tracking-wider px-2 pt-3 pb-1">Auth Flows</p>
+        <a href="#email-flow" class="nav-link block px-2 py-1 rounded text-xs text-gray-400">Email / Password</a>
+        <a href="#oauth-flow" class="nav-link block px-2 py-1 rounded text-xs text-gray-400">OAuth SSO</a>
+        <a href="#refresh-flow" class="nav-link block px-2 py-1 rounded text-xs text-gray-400">Token Refresh</a>
+        <p class="text-[10px] font-semibold text-gray-600 uppercase tracking-wider px-2 pt-3 pb-1">Implementation</p>
+        <a href="#models" class="nav-link block px-2 py-1 rounded text-xs text-gray-400">Models</a>
+        <a href="#services" class="nav-link block px-2 py-1 rounded text-xs text-gray-400">Services</a>
+        <a href="#endpoints" class="nav-link block px-2 py-1 rounded text-xs text-gray-400">Endpoints</a>
+        <a href="#frontend" class="nav-link block px-2 py-1 rounded text-xs text-gray-400">Frontend</a>
+        <p class="text-[10px] font-semibold text-gray-600 uppercase tracking-wider px-2 pt-3 pb-1">Security</p>
+        <a href="#security" class="nav-link block px-2 py-1 rounded text-xs text-gray-400">Best Practices</a>
+    </div>
+</aside>
+
+<main class="flex-1 lg:ml-56 min-h-screen">
+
+<!-- Hero -->
+<section id="overview" class="relative overflow-hidden">
+    <div class="absolute inset-0 bg-gradient-to-br from-brand-950/40 via-surface-0 to-surface-0"></div>
+    <div class="relative max-w-4xl mx-auto px-6 py-16">
+        <div class="flex gap-2 mb-5">
+            <span class="bg-emerald-500/10 text-emerald-400 text-[11px] font-medium px-2.5 py-0.5 rounded-full border border-emerald-500/20">Enterprise</span>
+            <span class="bg-amber-500/10 text-amber-400 text-[11px] font-medium px-2.5 py-0.5 rounded-full border border-amber-500/20">Production Ready</span>
+        </div>
+        <h1 class="text-4xl md:text-5xl font-bold text-white mb-3 leading-tight">Authentication<br><span class="gradient-text">Architecture Guide</span></h1>
+        <p class="text-base text-gray-400 max-w-xl leading-relaxed">Dual auth: <strong class="text-gray-200">email/password</strong> + <strong class="text-gray-200">SSO OAuth</strong> (Google/GitHub). JWT access tokens with refresh token rotation via <strong class="text-gray-200">HttpOnly cookies</strong>.</p>
+        <div class="flex gap-3 mt-6">
+            <a href="#project-structure" class="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-sm font-medium transition-colors">Explore</a>
+            <a href="#refresh-flow" class="px-4 py-2 bg-surface-3 hover:bg-surface-4 text-gray-300 rounded-lg text-sm font-medium transition-colors border border-surface-4">Token Flow</a>
+        </div>
+    </div>
+</section>
+
+<!-- Overview Cards -->
+<section class="max-w-4xl mx-auto px-6 -mt-2 pb-12">
+    <div class="grid md:grid-cols-3 gap-3">
+        <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-4 card-glow transition-all">
+            <div class="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center mb-2.5"><svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></div>
+            <h3 class="text-white font-semibold text-sm mb-0.5">Email / Password</h3>
+            <p class="text-xs text-gray-500">BCrypt hashing, account linking with SSO.</p>
+        </div>
+        <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-4 card-glow transition-all">
+            <div class="w-9 h-9 rounded-lg bg-purple-500/10 flex items-center justify-center mb-2.5"><svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg></div>
+            <h3 class="text-white font-semibold text-sm mb-0.5">OAuth 2.0 SSO</h3>
+            <p class="text-xs text-gray-500">Google &amp; GitHub, dynamic provider detection.</p>
+        </div>
+        <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-4 card-glow transition-all">
+            <div class="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center mb-2.5"><svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg></div>
+            <h3 class="text-white font-semibold text-sm mb-0.5">JWT + HttpOnly Cookie</h3>
+            <p class="text-xs text-gray-500">15-min access, 7-day refresh in HttpOnly cookie, XSS protected.</p>
+        </div>
+    </div>
+</section>
+
+<!-- Project Structure -->
+<section id="project-structure" class="max-w-4xl mx-auto px-6 pb-16">
+    <h2 class="text-xl font-bold text-white mb-1">Project Structure</h2>
+    <p class="text-sm text-gray-500 mb-5">Clean architecture with separation of concerns via extension methods and minimal API endpoints.</p>
+    <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-5 overflow-x-auto">
+        <pre class="tree" style="margin:0;white-space:pre"><span class="dir">InterviewPrepAPI/</span>
+├─ <span class="file">Program.cs</span>                          <span style="color:#4a4a5a">← entry point (12 lines)</span>
+├─ <span class="dir">Extensions/</span>
+│  ├─ <span class="highlight">ServiceCollectionExtensions.cs</span>   <span style="color:#4a4a5a">← DI: Database, Auth, CORS, RateLimiting</span>
+│  └─ <span class="highlight">WebApplicationExtensions.cs</span>      <span style="color:#4a4a5a">← Pipeline + endpoint mapping</span>
+├─ <span class="dir">Endpoints/</span>
+│  └─ <span class="highlight">AuthEndpoints.cs</span>                 <span style="color:#4a4a5a">← Minimal API: /api/auth/*</span>
+├─ <span class="dir">Middlewares/</span>
+│  ├─ <span class="file">GlobalExceptionHandlingMiddleware.cs</span> <span style="color:#4a4a5a">← structured error responses</span>
+│  └─ <span class="file">SecurityHeadersMiddleware.cs</span>      <span style="color:#4a4a5a">← HSTS, CSP, X-Frame, etc.</span>
+├─ <span class="dir">Configuration/</span>
+│  └─ <span class="file">RateLimitingConfiguration.cs</span>      <span style="color:#4a4a5a">← per-IP brute force protection</span>
+├─ <span class="dir">Services/</span>
+│  ├─ <span class="file">AuthService.cs</span>                   <span style="color:#4a4a5a">← register, login, OAuth, refresh</span>
+│  ├─ <span class="file">TokenService.cs</span>                  <span style="color:#4a4a5a">← JWT + refresh token generation</span>
+│  ├─ <span class="file">Repository.cs</span>                    <span style="color:#4a4a5a">← generic CRUD</span>
+│  └─ <span class="file">QuestionService.cs</span>
+├─ <span class="dir">Models/</span>
+│  ├─ <span class="file">User.cs</span>                         <span style="color:#4a4a5a">← AuthProvider, ExternalUserId</span>
+│  ├─ <span class="file">RefreshToken.cs</span>                 <span style="color:#4a4a5a">← token, ExpiresAt, IsRevoked</span>
+│  ├─ <span class="file">AuthDtos.cs</span>                     <span style="color:#4a4a5a">← RegisterDto, LoginDto, AuthResult</span>
+│  ├─ <span class="file">JwtSettings.cs</span>                  <span style="color:#4a4a5a">← config POCO</span>
+│  ├─ <span class="file">BaseEntity.cs</span>                   <span style="color:#4a4a5a">← Id, CreatedAt, UpdatedAt</span>
+│  ├─ <span class="file">Question.cs</span>, <span class="file">Category.cs</span>, <span class="file">UserAnswer.cs</span>
+│  └─ <span class="file">DifficultyLevel.cs</span>              <span style="color:#4a4a5a">← enum</span>
+├─ <span class="dir">Data/</span>
+│  ├─ <span class="file">AppDbContext.cs</span>                  <span style="color:#4a4a5a">← Users, RefreshTokens, Questions</span>
+│  └─ <span class="dir">Configurations/</span>                 <span style="color:#4a4a5a">← Fluent API per entity</span>
+├─ <span class="dir">Controllers/</span>                      <span style="color:#4a4a5a">← (empty, using minimal API)</span>
+├─ <span class="dir">wwwroot/docs/</span>
+│  └─ <span class="file">index.html</span>                     <span style="color:#4a4a5a">← this page</span>
+└─ <span class="dir">Migrations/</span></pre>
+    </div>
+</section>
+
+<!-- Architecture -->
+<section id="architecture" class="max-w-4xl mx-auto px-6 pb-16">
+    <h2 class="text-xl font-bold text-white mb-1">Architecture</h2>
+    <p class="text-sm text-gray-500 mb-5">Three auth paths converge into a single token-based session.</p>
+    <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-5">
+        <svg viewBox="0 0 800 380" class="w-full" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+            <text x="400" y="20" text-anchor="middle" fill="#818cf8" font-size="13" font-weight="700">Auth Flow</text>
+            <rect x="300" y="35" width="200" height="35" rx="8" fill="#1e1b4b" stroke="#4f46e5" stroke-width="1.5"/>
+            <text x="400" y="57" text-anchor="middle" fill="#c7d2fe" font-size="11" font-weight="600">Frontend</text>
+            <line x1="400" y1="70" x2="400" y2="95" stroke="#4f46e5" stroke-width="1.2" marker-end="url(#a1)"/>
+            <rect x="240" y="95" width="320" height="40" rx="8" fill="#111118" stroke="#6366f1" stroke-width="1.5"/>
+            <text x="400" y="112" text-anchor="middle" fill="#a5b4fc" font-size="10" font-weight="600">POST /api/auth/{register | login | refresh}</text>
+            <text x="400" y="126" text-anchor="middle" fill="#6b7280" font-size="9">GET /api/auth/{google|github}/login</text>
+            <line x1="400" y1="135" x2="400" y2="160" stroke="#4f46e5" stroke-width="1.2" marker-end="url(#a1)"/>
+            <rect x="270" y="160" width="260" height="35" rx="8" fill="#1a1a24" stroke="#4338ca" stroke-width="1.2"/>
+            <text x="400" y="182" text-anchor="middle" fill="#c7d2fe" font-size="11" font-weight="600">IAuthService</text>
+            <line x1="320" y1="195" x2="180" y2="230" stroke="#059669" stroke-width="1" marker-end="url(#a2)"/>
+            <line x1="400" y1="195" x2="400" y2="230" stroke="#d97706" stroke-width="1" marker-end="url(#a3)"/>
+            <line x1="480" y1="195" x2="620" y2="230" stroke="#dc2626" stroke-width="1" marker-end="url(#a4)"/>
+            <rect x="80" y="230" width="150" height="35" rx="6" fill="#1a1a24" stroke="#059669" stroke-width="1"/>
+            <text x="155" y="252" text-anchor="middle" fill="#6ee7b7" font-size="10">BCrypt Verify</text>
+            <rect x="280" y="230" width="180" height="35" rx="6" fill="#1a1a24" stroke="#d97706" stroke-width="1"/>
+            <text x="370" y="252" text-anchor="middle" fill="#fcd34d" font-size="10">Google/GitHub OAuth</text>
+            <rect x="540" y="230" width="160" height="35" rx="6" fill="#1a1a24" stroke="#dc2626" stroke-width="1"/>
+            <text x="620" y="252" text-anchor="middle" fill="#fca5a5" font-size="10">Find/Revoke Token</text>
+            <line x1="155" y1="265" x2="350" y2="300" stroke="#334155" stroke-width="1" stroke-dasharray="3"/>
+            <line x1="370" y1="265" x2="380" y2="300" stroke="#334155" stroke-width="1" stroke-dasharray="3"/>
+            <line x1="620" y1="265" x2="450" y2="300" stroke="#334155" stroke-width="1" stroke-dasharray="3"/>
+            <rect x="280" y="300" width="240" height="35" rx="8" fill="#111118" stroke="#0ea5e9" stroke-width="1.5"/>
+            <text x="400" y="322" text-anchor="middle" fill="#7dd3fc" font-size="10" font-weight="600">ITokenService → JWT + RefreshToken</text>
+            <line x1="400" y1="335" x2="400" y2="355" stroke="#0ea5e9" stroke-width="1.2" marker-end="url(#a5)"/>
+            <rect x="280" y="355" width="240" height="25" rx="6" fill="#1e1b4b" stroke="#7c3aed" stroke-width="1"/>
+            <text x="400" y="372" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="600">PostgreSQL → Users | RefreshTokens</text>
+            <defs>
+                <marker id="a1" markerWidth="7" markerHeight="7" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7Z" fill="#4f46e5"/></marker>
+                <marker id="a2" markerWidth="7" markerHeight="7" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7Z" fill="#059669"/></marker>
+                <marker id="a3" markerWidth="7" markerHeight="7" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7Z" fill="#d97706"/></marker>
+                <marker id="a4" markerWidth="7" markerHeight="7" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7Z" fill="#dc2626"/></marker>
+                <marker id="a5" markerWidth="7" markerHeight="7" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7Z" fill="#0ea5e9"/></marker>
+            </defs>
+        </svg>
+    </div>
+</section>
+
+<!-- Config -->
+<section id="config" class="max-w-4xl mx-auto px-6 pb-16">
+    <h2 class="text-xl font-bold text-white mb-1">Configuration</h2>
+    <p class="text-sm text-gray-500 mb-5">Sensitive values via User Secrets. OAuth providers are dynamic — only register if configured.</p>
+    <div class="rounded-xl overflow-hidden border border-surface-4/50 mb-4">
+        <div class="flex items-center justify-between px-4 py-2 bg-surface-2 border-b border-surface-4/50">
+            <span class="text-xs text-gray-400">appsettings.json</span>
+            <button onclick="copyCode(this)" class="text-[10px] text-gray-500 hover:text-white">Copy</button>
+        </div>
+        <pre class="p-4 bg-surface-1 overflow-x-auto"><code class="language-json">{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Port=5432;Database=interviewprep_db;Username=interviewprep"
+  },
+  "JwtSettings": {
+    "SecretKey": "REPLACE-WITH-256-BIT-KEY-IN-USER-SECRETS",
+    "Issuer": "InterviewPrepAPI",
+    "Audience": "InterviewPrepApp",
+    "AccessTokenExpirationMinutes": 15,
+    "RefreshTokenExpirationDays": 7
+  },
+  "AllowedOrigins": ["http://localhost:3000", "http://localhost:5173"]
+}</code></pre>
+    </div>
+    <div class="rounded-xl overflow-hidden border border-surface-4/50">
+        <div class="flex items-center justify-between px-4 py-2 bg-surface-2 border-b border-surface-4/50">
+            <span class="text-xs text-gray-400">Terminal</span>
+            <button onclick="copyCode(this)" class="text-[10px] text-gray-500 hover:text-white">Copy</button>
+        </div>
+        <pre class="p-4 bg-surface-1 overflow-x-auto"><code class="language-bash">dotnet user-secrets set "JwtSettings:SecretKey" "your-256-bit-key-here"
+dotnet user-secrets set "Authentication:Google:ClientId" "xxx.apps.googleusercontent.com"
+dotnet user-secrets set "Authentication:Google:ClientSecret" "GOCSPX-xxx"
+dotnet user-secrets set "Authentication:GitHub:ClientId" "Iv1.xxxxxxxxxxxx"
+dotnet user-secrets set "Authentication:GitHub:ClientSecret" "xxxxxxxxxxxx"</code></pre>
+    </div>
+</section>
+
+<!-- Program.cs -->
+<section id="program-cs" class="max-w-4xl mx-auto px-6 pb-16">
+    <h2 class="text-xl font-bold text-white mb-1">Program.cs</h2>
+    <p class="text-sm text-gray-500 mb-5">Clean pipeline — each concern in its own extension method.</p>
+    <div class="rounded-xl overflow-hidden border border-surface-4/50">
+        <div class="flex items-center justify-between px-4 py-2 bg-surface-2 border-b border-surface-4/50">
+            <span class="text-xs text-gray-400">Program.cs</span>
+            <button onclick="copyCode(this)" class="text-[10px] text-gray-500 hover:text-white">Copy</button>
+        </div>
+        <pre class="p-4 bg-surface-1 overflow-x-auto"><code class="language-csharp">var builder = WebApplication.CreateBuilder(args);
+
+builder.Services
+    .AddDatabase(builder.Configuration)
+    .AddAuth(builder.Configuration)
+    .AddCorsPolicy(builder.Configuration)
+    .AddCustomRateLimiting()
+    .AddResponseCompression()
+    .AddRequestLimits()
+    .AddAppServices()
+    .AddApiExplorer();
+
+builder.Services.AddControllers();
+
+var app = builder.Build();
+
+app.UseSecurityPipeline();
+app.MapAppEndpoints();
+
+app.Run();</code></pre>
+    </div>
+</section>
+
+<!-- Email Flow -->
+<section id="email-flow" class="max-w-4xl mx-auto px-6 pb-16">
+    <h2 class="text-xl font-bold text-white mb-1">Email / Password Flow</h2>
+    <p class="text-sm text-gray-500 mb-5">Registration and login with BCrypt hashing. OAuth providers are dynamically detected.</p>
+    <div class="grid md:grid-cols-2 gap-4">
+        <div class="rounded-xl overflow-hidden border border-surface-4/50">
+            <div class="px-4 py-2 bg-surface-2 border-b border-surface-4/50"><span class="text-xs text-gray-400">Register — AuthService.cs</span></div>
+            <pre class="p-4 bg-surface-1 overflow-x-auto"><code class="language-csharp">public async Task&lt;AuthResult&gt; RegisterAsync(RegisterDto dto)
+{
+    if (await _db.Users.AnyAsync(u =&gt; u.Email == dto.Email))
+        throw new InvalidOperationException("Email already registered");
+
+    var user = new User
+    {
+        Username     = dto.Username,
+        Email        = dto.Email,
+        PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
+        AuthProvider = "local"
+    };
+
+    _db.Users.Add(user);
+    await _db.SaveChangesAsync();
+    return await GenerateTokensAsync(user);
+}</code></pre>
+        </div>
+        <div class="rounded-xl overflow-hidden border border-surface-4/50">
+            <div class="px-4 py-2 bg-surface-2 border-b border-surface-4/50"><span class="text-xs text-gray-400">Login — AuthService.cs</span></div>
+            <pre class="p-4 bg-surface-1 overflow-x-auto"><code class="language-csharp">public async Task&lt;AuthResult&gt; LoginAsync(LoginDto dto)
+{
+    var user = await _db.Users.FirstOrDefaultAsync(u =&gt;
+        u.Email == dto.Email &amp;&amp; u.AuthProvider == "local");
+
+    if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
+        throw new UnauthorizedAccessException("Invalid credentials");
+
+    return await GenerateTokensAsync(user);
+}</code></pre>
+        </div>
+    </div>
+</section>
+
+<!-- OAuth Flow -->
+<section id="oauth-flow" class="max-w-4xl mx-auto px-6 pb-16">
+    <h2 class="text-xl font-bold text-white mb-1">OAuth SSO Flow</h2>
+    <p class="text-sm text-gray-500 mb-5">Google/GitHub OAuth2 with automatic account linking when emails match.</p>
+    <div class="rounded-xl overflow-hidden border border-surface-4/50 mb-4">
+        <div class="px-4 py-2 bg-surface-2 border-b border-surface-4/50"><span class="text-xs text-gray-400">LoginWithExternalProviderAsync — AuthService.cs</span></div>
+        <pre class="p-4 bg-surface-1 overflow-x-auto"><code class="language-csharp">public async Task&lt;AuthResult&gt; LoginWithExternalProviderAsync(
+    string provider, string externalUserId, string email, string username)
+{
+    // 1. Find by provider + external ID
+    var user = await _db.Users.FirstOrDefaultAsync(u =&gt;
+        u.AuthProvider == provider &amp;&amp; u.ExternalUserId == externalUserId);
+
+    if (user == null)
+    {
+        // 2. Try linking to existing email account
+        user = await _db.Users.FirstOrDefaultAsync(u =&gt; u.Email == email);
+        if (user != null)
+        {
+            user.AuthProvider   = provider;
+            user.ExternalUserId = externalUserId;
+        }
+        else
+        {
+            // 3. Create new SSO-only user (no password)
+            user = new User
+            {
+                Username       = username,
+                Email          = email,
+                AuthProvider   = provider,
+                ExternalUserId = externalUserId,
+                EmailConfirmed = true
+            };
+            _db.Users.Add(user);
+        }
+    }
+
+    await _db.SaveChangesAsync();
+    return await GenerateTokensAsync(user);
+}</code></pre>
+    </div>
+    <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-4">
+        <p class="text-xs text-gray-400 mb-2 font-medium">OAuth Sequence</p>
+        <div class="text-xs text-gray-500 space-y-1 font-mono">
+            <p><span class="text-blue-400">1.</span> Frontend → <span class="text-gray-300">GET /api/auth/google/login</span></p>
+            <p><span class="text-blue-400">2.</span> Server → <span class="text-gray-300">302 Redirect to Google consent screen</span></p>
+            <p><span class="text-blue-400">3.</span> User approves → Google redirects back with auth code</p>
+            <p><span class="text-blue-400">4.</span> Server → <span class="text-gray-300">Exchange code for tokens at Google</span></p>
+            <p><span class="text-blue-400">5.</span> Server → <span class="text-gray-300">GET userinfo (email, name, sub)</span></p>
+            <p><span class="text-blue-400">6.</span> Server → <span class="text-gray-300">Find or create User in DB</span></p>
+            <p><span class="text-blue-400">7.</span> Server → <span class="text-gray-300">Set HttpOnly cookie + Return { accessToken, user }</span></p>
+        </div>
+    </div>
+</section>
+
+<!-- Refresh Flow -->
+<section id="refresh-flow" class="max-w-4xl mx-auto px-6 pb-16">
+    <h2 class="text-xl font-bold text-white mb-1">Token Refresh Flow</h2>
+    <p class="text-sm text-gray-500 mb-5">Single-use refresh token rotation. Each refresh revokes the old token and issues a new pair.</p>
+
+    <!-- Why Refresh Tokens? -->
+    <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-5 mb-4">
+        <h3 class="text-white text-sm font-semibold mb-3">Why Do We Need Refresh Tokens?</h3>
+        <div class="grid md:grid-cols-2 gap-4">
+            <div class="space-y-2">
+                <p class="text-xs text-gray-400"><strong class="text-gray-200">The Problem:</strong> Access tokens are short-lived (15 min) for security. But forcing users to re-login every 15 minutes is terrible UX.</p>
+                <p class="text-xs text-gray-400"><strong class="text-gray-200">The Solution:</strong> Refresh tokens are long-lived (7 days) and stored securely. They let the server issue new access tokens without re-authentication.</p>
+            </div>
+            <div class="bg-surface-2 rounded-lg p-3">
+                <p class="text-[10px] text-gray-500 font-medium mb-2">TOKEN LIFETIME COMPARISON</p>
+                <div class="space-y-1.5 text-xs">
+                    <div class="flex items-center gap-2">
+                        <div class="w-16 text-gray-500">Access Token</div>
+                        <div class="flex-1 h-2 bg-surface-3 rounded-full overflow-hidden">
+                            <div class="h-full bg-blue-500 rounded-full" style="width: 0.15%"></div>
+                        </div>
+                        <div class="text-gray-400 w-16 text-right">15 minutes</div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-16 text-gray-500">Refresh Token</div>
+                        <div class="flex-1 h-2 bg-surface-3 rounded-full overflow-hidden">
+                            <div class="h-full bg-purple-500 rounded-full" style="width: 100%"></div>
+                        </div>
+                        <div class="text-gray-400 w-16 text-right">7 days</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Flow Diagram -->
+    <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-5 mb-4">
+        <h3 class="text-white text-sm font-semibold mb-3">Complete Flow Diagram</h3>
+        <svg viewBox="0 0 750 320" class="w-full" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+            <text x="375" y="18" text-anchor="middle" fill="#818cf8" font-size="13" font-weight="700">Refresh Token Rotation</text>
+
+            <!-- Time axis -->
+            <line x1="50" y1="38" x2="700" y2="38" stroke="#334155" stroke-width="1" stroke-dasharray="4"/>
+            <text x="715" y="42" fill="#475569" font-size="9">TIME</text>
+
+            <!-- Access Token 1 box -->
+            <rect x="50" y="50" width="200" height="24" rx="5" fill="#1e1b4b" stroke="#4f46e5" stroke-width="1.2"/>
+            <text x="150" y="66" text-anchor="middle" fill="#a5b4fc" font-size="9" font-weight="600">Access Token #1 (15 min)</text>
+
+            <!-- 401 box -->
+            <rect x="260" y="50" width="50" height="24" rx="5" fill="#7f1d1d" stroke="#dc2626" stroke-width="1.2"/>
+            <text x="285" y="66" text-anchor="middle" fill="#fca5a5" font-size="9" font-weight="700">401</text>
+
+            <!-- Arrow to refresh -->
+            <line x1="285" y1="74" x2="285" y2="95" stroke="#dc2626" stroke-width="1" marker-end="url(#r1)"/>
+
+            <!-- Refresh call -->
+            <rect x="200" y="95" width="170" height="24" rx="5" fill="#111118" stroke="#d97706" stroke-width="1.2"/>
+            <text x="285" y="111" text-anchor="middle" fill="#fcd34d" font-size="9" font-weight="600">POST /api/auth/refresh</text>
+
+            <!-- Server processes -->
+            <line x1="285" y1="119" x2="285" y2="140" stroke="#d97706" stroke-width="1" marker-end="url(#r2)"/>
+            <rect x="170" y="140" width="230" height="50" rx="6" fill="#1a1a24" stroke="#6366f1" stroke-width="1.2"/>
+            <text x="285" y="158" text-anchor="middle" fill="#a5b4fc" font-size="9" font-weight="600">Server validates refresh token</text>
+            <text x="285" y="172" text-anchor="middle" fill="#6b7280" font-size="8">Check DB: exists? expired? revoked?</text>
+            <text x="285" y="184" text-anchor="middle" fill="#6b7280" font-size="8">If valid → revoke old, issue new pair</text>
+
+            <!-- Two outcomes -->
+            <line x1="230" y1="190" x2="140" y2="220" stroke="#059669" stroke-width="1" marker-end="url(#r3)"/>
+            <line x1="340" y1="190" x2="430" y2="220" stroke="#dc2626" stroke-width="1" marker-end="url(#r1)"/>
+
+            <!-- Valid path -->
+            <rect x="50" y="220" width="180" height="45" rx="6" fill="#1a1a24" stroke="#059669" stroke-width="1.2"/>
+            <text x="140" y="238" text-anchor="middle" fill="#6ee7b7" font-size="9" font-weight="600">Token Valid</text>
+            <text x="140" y="252" text-anchor="middle" fill="#6b7280" font-size="8">Revoke old refresh token</text>
+            <text x="140" y="262" text-anchor="middle" fill="#6b7280" font-size="8">Issue new access + refresh</text>
+
+            <!-- Invalid path -->
+            <rect x="370" y="220" width="180" height="45" rx="6" fill="#1a1a24" stroke="#dc2626" stroke-width="1.2"/>
+            <text x="460" y="238" text-anchor="middle" fill="#fca5a5" font-size="9" font-weight="600">Token Invalid</text>
+            <text x="460" y="252" text-anchor="middle" fill="#6b7280" font-size="8">Revoked? → 401 (possible theft)</text>
+            <text x="460" y="262" text-anchor="middle" fill="#6b7280" font-size="8">Expired? → 401 (re-login)</text>
+
+            <!-- New tokens -->
+            <line x1="140" y1="265" x2="140" y2="285" stroke="#059669" stroke-width="1" marker-end="url(#r3)"/>
+            <rect x="40" y="285" width="200" height="24" rx="5" fill="#1e1b4b" stroke="#4f46e5" stroke-width="1.2"/>
+            <text x="140" y="301" text-anchor="middle" fill="#a5b4fc" font-size="9" font-weight="600">Access Token #2 (15 min)</text>
+
+            <rect x="270" y="285" width="200" height="24" rx="5" fill="#1e1b4b" stroke="#7c3aed" stroke-width="1.2"/>
+            <text x="370" y="301" text-anchor="middle" fill="#c4b5fd" font-size="9" font-weight="600">Refresh Token #2 (7 days)</text>
+
+            <defs>
+                <marker id="r1" markerWidth="7" markerHeight="7" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7Z" fill="#dc2626"/></marker>
+                <marker id="r2" markerWidth="7" markerHeight="7" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7Z" fill="#d97706"/></marker>
+                <marker id="r3" markerWidth="7" markerHeight="7" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7Z" fill="#059669"/></marker>
+            </defs>
+        </svg>
+    </div>
+
+    <!-- Step-by-Step Breakdown -->
+    <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-5 mb-4">
+        <h3 class="text-white text-sm font-semibold mb-4">Step-by-Step Breakdown</h3>
+        <div class="space-y-4">
+            <!-- Step 1 -->
+            <div class="flex gap-3">
+                <div class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
+                    <span class="text-[10px] text-blue-400 font-bold">1</span>
+                </div>
+                <div class="flex-1">
+                    <h4 class="text-white text-xs font-semibold mb-1">Access Token Expires</h4>
+                    <p class="text-xs text-gray-500">After 15 minutes, the JWT access token expires. Any API request with an expired token returns <code class="bg-surface-3 px-1 rounded text-red-400">401 Unauthorized</code>.</p>
+                    <div class="mt-2 bg-surface-2 rounded-lg p-2 font-mono text-[10px] text-gray-400">
+                        <p>GET /api/questions → 401 { "error": "Token expired" }</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="flex gap-3">
+                <div class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
+                    <span class="text-[10px] text-amber-400 font-bold">2</span>
+                </div>
+                <div class="flex-1">
+                    <h4 class="text-white text-xs font-semibold mb-1">Frontend Interceptor Catches 401</h4>
+                    <p class="text-xs text-gray-500">The Axios interceptor automatically detects the 401 error and attempts to refresh the token before the user notices anything.</p>
+                    <div class="mt-2 bg-surface-2 rounded-lg p-2 font-mono text-[10px] text-gray-400">
+                        <p>if (error.response?.status === 401 && !req._retry) {</p>
+                        <p class="pl-4">req._retry = true;</p>
+                        <p class="pl-4">// attempt refresh...</p>
+                        <p>}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="flex gap-3">
+                <div class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
+                    <span class="text-[10px] text-amber-400 font-bold">3</span>
+                </div>
+                <div class="flex-1">
+                    <h4 class="text-white text-xs font-semibold mb-1">Browser Sends HttpOnly Cookie Automatically</h4>
+                    <p class="text-xs text-gray-500">Frontend calls <code class="bg-surface-3 px-1 rounded text-amber-400">POST /api/auth/refresh</code>. Browser automatically includes the HttpOnly cookie - JavaScript cannot access or modify it.</p>
+                    <div class="mt-2 bg-surface-2 rounded-lg p-2 font-mono text-[10px] text-gray-400">
+                        <p class="text-emerald-400">// Frontend code (no refresh token handling!)</p>
+                        <p>await axios.post("/api/auth/refresh", null, {</p>
+                        <p class="pl-4">withCredentials: true</p>
+                        <p>});</p>
+                        <p class="text-purple-400 mt-1">// Browser automatically sends: Cookie: refresh_token=xxx</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4 -->
+            <div class="flex gap-3">
+                <div class="flex-shrink-0 w-6 h-6 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
+                    <span class="text-[10px] text-purple-400 font-bold">4</span>
+                </div>
+                <div class="flex-1">
+                    <h4 class="text-white text-xs font-semibold mb-1">Server Validates Token</h4>
+                    <p class="text-xs text-gray-500">Server checks the refresh token against the database with three validations:</p>
+                    <div class="mt-2 grid grid-cols-3 gap-2">
+                        <div class="bg-surface-2 rounded-lg p-2 text-center">
+                            <p class="text-[10px] text-gray-500 mb-1">EXISTS?</p>
+                            <p class="text-[10px] text-gray-400">Token found in DB</p>
+                        </div>
+                        <div class="bg-surface-2 rounded-lg p-2 text-center">
+                            <p class="text-[10px] text-gray-500 mb-1">EXPIRED?</p>
+                            <p class="text-[10px] text-gray-400">ExpiresAt > UtcNow</p>
+                        </div>
+                        <div class="bg-surface-2 rounded-lg p-2 text-center">
+                            <p class="text-[10px] text-gray-500 mb-1">REVOKED?</p>
+                            <p class="text-[10px] text-gray-400">IsRevoked == false</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 5 -->
+            <div class="flex gap-3">
+                <div class="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
+                    <span class="text-[10px] text-emerald-400 font-bold">5</span>
+                </div>
+                <div class="flex-1">
+                    <h4 class="text-white text-xs font-semibold mb-1">Token Rotation (If Valid)</h4>
+                    <p class="text-xs text-gray-500">If all checks pass, server immediately revokes the old refresh token and issues a new pair. This is "rotation" - each token can only be used once.</p>
+                    <div class="mt-2 bg-surface-2 rounded-lg p-2 font-mono text-[10px] text-gray-400">
+                        <p>// Revoke old token (single-use enforcement)</p>
+                        <p>storedToken.IsRevoked = true;</p>
+                        <p>// Issue new pair</p>
+                        <p>return await GenerateTokensAsync(storedToken.User);</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 6 -->
+            <div class="flex gap-3">
+                <div class="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
+                    <span class="text-[10px] text-emerald-400 font-bold">6</span>
+                </div>
+                <div class="flex-1">
+                    <h4 class="text-white text-xs font-semibold mb-1">New Tokens Returned</h4>
+                    <p class="text-xs text-gray-500">Server returns only access token in body. Refresh token is set as HttpOnly cookie automatically by browser.</p>
+                    <div class="mt-2 bg-surface-2 rounded-lg p-2 font-mono text-[10px] text-gray-400">
+                        <p class="text-emerald-400">// Response body (only access token)</p>
+                        <p>{</p>
+                        <p class="pl-4">"accessToken": "eyJhbGciOiJI...",</p>
+                        <p class="pl-4">"user": { "id": 1, "email": "..." }</p>
+                        <p>}</p>
+                        <p class="text-purple-400 mt-1">// Refresh token is in HttpOnly cookie (JS cannot read)</p>
+                        <p class="text-purple-400">Set-Cookie: refresh_token=xxx; HttpOnly; Secure; SameSite=Strict</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invalid Token Scenarios -->
+    <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-5 mb-4">
+        <h3 class="text-white text-sm font-semibold mb-3">Invalid Token Scenarios</h3>
+        <div class="grid md:grid-cols-2 gap-4">
+            <div class="bg-surface-2 rounded-lg p-3 border border-red-500/20">
+                <h4 class="text-red-400 text-xs font-semibold mb-2">Scenario A: Token Expired</h4>
+                <p class="text-[10px] text-gray-500 mb-2">Refresh token exceeded 7-day limit. User must re-login.</p>
+                <div class="bg-surface-3 rounded p-2 font-mono text-[10px] text-gray-400">
+                    <p>Server: storedToken.ExpiresAt &lt; DateTime.UtcNow</p>
+                    <p class="text-red-400">→ 401 "Refresh token expired. Please login again."</p>
+                </div>
+            </div>
+            <div class="bg-surface-2 rounded-lg p-3 border border-red-500/20">
+                <h4 class="text-red-400 text-xs font-semibold mb-2">Scenario B: Token Revoked (Theft Detection)</h4>
+                <p class="text-[10px] text-gray-500 mb-2">Token was already used (possibly by attacker). Server detects replay.</p>
+                <div class="bg-surface-3 rounded p-2 font-mono text-[10px] text-gray-400">
+                    <p>Server: storedToken == null (revoked tokens filtered out)</p>
+                    <p class="text-red-400">→ 401 "Invalid refresh token. Possible theft detected."</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Code Implementation -->
+    <div class="rounded-xl overflow-hidden border border-surface-4/50 mb-4">
+        <div class="px-4 py-2 bg-surface-2 border-b border-surface-4/50"><span class="text-xs text-gray-400">RefreshTokensAsync — AuthService.cs (HttpOnly Cookie)</span></div>
+        <pre class="p-4 bg-surface-1 overflow-x-auto"><code class="language-csharp">public async Task&lt;AuthResult&gt; RefreshTokensAsync(HttpContext context)
+{
+    // 1. Get refresh token from HttpOnly cookie (not from request body!)
+    var refreshToken = context.Request.Cookies["refresh_token"];
+    if (string.IsNullOrEmpty(refreshToken))
+        throw new UnauthorizedAccessException("Refresh token not found");
+
+    // 2. Find token in DB, include User
+    var storedToken = await _db.RefreshTokens
+        .Include(t =&gt; t.User)
+        .FirstOrDefaultAsync(t =&gt;
+            t.Token == refreshToken &amp;&amp; !t.IsRevoked);
+
+    // 3. Validate
+    if (storedToken == null || storedToken.ExpiresAt &lt; DateTime.UtcNow)
+        throw new UnauthorizedAccessException("Invalid refresh token");
+
+    // 4. Revoke old token (single-use rotation)
+    storedToken.IsRevoked = true;
+
+    // 5. Issue new pair (sets new HttpOnly cookie automatically)
+    return await GenerateTokensAsync(storedToken.User, context);
+}
+
+private async Task&lt;AuthResult&gt; GenerateTokensAsync(User user, HttpContext context)
+{
+    var accessToken = _tokenService.GenerateAccessToken(user);
+    var refreshToken = _tokenService.GenerateRefreshToken();
+
+    // Store in DB
+    _db.RefreshTokens.Add(new RefreshToken
+    {
+        Token = refreshToken.Token,
+        ExpiresAt = refreshToken.ExpiresAt,
+        UserId = user.Id
+    });
+    await _db.SaveChangesAsync();
+
+    // Set HttpOnly cookie - JavaScript CANNOT access this!
+    var cookieOptions = new CookieOptions
+    {
+        HttpOnly = true,      // JS cannot read
+        Secure = true,        // HTTPS only
+        SameSite = SameSiteMode.Strict,  // CSRF protection
+        Path = "/api/auth",   // Only sent to auth endpoints
+        Expires = refreshToken.ExpiresAt
+    };
+    context.Response.Cookies.Append("refresh_token", refreshToken.Token, cookieOptions);
+
+    // Only return access token in body (short-lived, less risk)
+    return new AuthResult
+    {
+        AccessToken = accessToken,
+        User = new UserDto { Id = user.Id, Username = user.Username, Email = user.Email }
+    };
+}</code></pre>
+    </div>
+
+    <!-- Security Deep Dive -->
+    <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-5 mb-4">
+        <h3 class="text-white text-sm font-semibold mb-3">Security Deep Dive (Maximum Protection)</h3>
+        <div class="space-y-3">
+            <div class="flex gap-3 items-start">
+                <div class="flex-shrink-0 w-5 h-5 rounded bg-emerald-500/20 flex items-center justify-center mt-0.5">
+                    <svg class="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <div>
+                    <h4 class="text-white text-xs font-semibold">HttpOnly Cookie (XSS Protection)</h4>
+                    <p class="text-[10px] text-gray-500">Refresh token stored in HttpOnly cookie. JavaScript <strong class="text-red-400">cannot</strong> access it via <code class="bg-surface-3 px-1 rounded">document.cookie</code>. XSS attacks cannot steal the refresh token.</p>
+                </div>
+            </div>
+            <div class="flex gap-3 items-start">
+                <div class="flex-shrink-0 w-5 h-5 rounded bg-emerald-500/20 flex items-center justify-center mt-0.5">
+                    <svg class="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <div>
+                    <h4 class="text-white text-xs font-semibold">Secure Flag (HTTPS Only)</h4>
+                    <p class="text-[10px] text-gray-500">Cookie only sent over HTTPS. Prevents network sniffing attacks from stealing tokens in transit.</p>
+                </div>
+            </div>
+            <div class="flex gap-3 items-start">
+                <div class="flex-shrink-0 w-5 h-5 rounded bg-emerald-500/20 flex items-center justify-center mt-0.5">
+                    <svg class="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <div>
+                    <h4 class="text-white text-xs font-semibold">SameSite=Strict (CSRF Protection)</h4>
+                    <p class="text-[10px] text-gray-500">Cookie only sent for same-site requests. Prevents Cross-Site Request Forgery attacks.</p>
+                </div>
+            </div>
+            <div class="flex gap-3 items-start">
+                <div class="flex-shrink-0 w-5 h-5 rounded bg-emerald-500/20 flex items-center justify-center mt-0.5">
+                    <svg class="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <div>
+                    <h4 class="text-white text-xs font-semibold">Path Restriction</h4>
+                    <p class="text-[10px] text-gray-500">Cookie only sent to <code class="bg-surface-3 px-1 rounded">/api/auth</code> endpoints. Reduces attack surface.</p>
+                </div>
+            </div>
+            <div class="flex gap-3 items-start">
+                <div class="flex-shrink-0 w-5 h-5 rounded bg-emerald-500/20 flex items-center justify-center mt-0.5">
+                    <svg class="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <div>
+                    <h4 class="text-white text-xs font-semibold">Single-Use Tokens</h4>
+                    <p class="text-[10px] text-gray-500">Each refresh token can only be used once. After use, <code class="bg-surface-3 px-1 rounded">IsRevoked = true</code>. If someone steals and uses it, the legitimate user's next refresh attempt will fail → alerting them to compromise.</p>
+                </div>
+            </div>
+            <div class="flex gap-3 items-start">
+                <div class="flex-shrink-0 w-5 h-5 rounded bg-emerald-500/20 flex items-center justify-center mt-0.5">
+                    <svg class="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <div>
+                    <h4 class="text-white text-xs font-semibold">HSTS (1 Year + Preload)</h4>
+                    <p class="text-[10px] text-gray-500">Forces browsers to use HTTPS for 1 year. Added to HSTS preload list. Prevents downgrade attacks.</p>
+                </div>
+            </div>
+            <div class="flex gap-3 items-start">
+                <div class="flex-shrink-0 w-5 h-5 rounded bg-emerald-500/20 flex items-center justify-center mt-0.5">
+                    <svg class="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <div>
+                    <h4 class="text-white text-xs font-semibold">XSS Cannot Steal Refresh Token</h4>
+                    <p class="text-[10px] text-gray-500">With HttpOnly cookie, even if XSS injects malicious script, it cannot read <code class="bg-surface-3 px-1 rounded">document.cookie</code>. Refresh token is completely invisible to JavaScript.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stolen Token Scenario -->
+    <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-5">
+        <h3 class="text-white text-sm font-semibold mb-3">What Happens If a Refresh Token Is Stolen?</h3>
+        <div class="space-y-3">
+            <!-- Timeline -->
+            <div class="relative pl-6 space-y-4">
+                <div class="absolute left-2 top-0 bottom-0 w-px bg-surface-4"></div>
+                
+                <div class="relative">
+                    <div class="absolute left-[-18px] top-1 w-3 h-3 rounded-full bg-emerald-500 border-2 border-surface-1"></div>
+                    <div class="bg-surface-2 rounded-lg p-3">
+                        <p class="text-[10px] text-emerald-400 font-semibold mb-1">XSS ATTACK: BLOCKED</p>
+                        <p class="text-[10px] text-gray-500">With HttpOnly cookie, XSS cannot steal refresh token. <code class="bg-surface-3 px-1 rounded">document.cookie</code> returns empty for refresh_token.</p>
+                    </div>
+                </div>
+
+                <div class="relative">
+                    <div class="absolute left-[-18px] top-1 w-3 h-3 rounded-full bg-blue-500 border-2 border-surface-1"></div>
+                    <div class="bg-surface-2 rounded-lg p-3">
+                        <p class="text-[10px] text-blue-400 font-semibold mb-1">NETWORK SNIFFING: BLOCKED</p>
+                        <p class="text-[10px] text-gray-500">HTTPS encrypts all traffic. Cookie with <code class="bg-surface-3 px-1 rounded">Secure</code> flag only sent over HTTPS.</p>
+                    </div>
+                </div>
+
+                <div class="relative">
+                    <div class="absolute left-[-18px] top-1 w-3 h-3 rounded-full bg-amber-500 border-2 border-surface-1"></div>
+                    <div class="bg-surface-2 rounded-lg p-3">
+                        <p class="text-[10px] text-amber-400 font-semibold mb-1">CSRF ATTACK: BLOCKED</p>
+                        <p class="text-[10px] text-gray-500">With <code class="bg-surface-3 px-1 rounded">SameSite=Strict</code>, cookie only sent for same-site requests. Cross-site requests cannot include it.</p>
+                    </div>
+                </div>
+
+                <div class="relative">
+                    <div class="absolute left-[-18px] top-1 w-3 h-3 rounded-full bg-purple-500 border-2 border-surface-1"></div>
+                    <div class="bg-surface-2 rounded-lg p-3">
+                        <p class="text-[10px] text-purple-400 font-semibold mb-1">STILL PROTECTED: Single-Use Rotation</p>
+                        <p class="text-[10px] text-gray-500">If somehow stolen (e.g., physical access), single-use rotation ensures: first use = success, second use = 401. Legitimate user is alerted.</p>
+                    </div>
+                </div>
+
+                <div class="relative">
+                    <div class="absolute left-[-18px] top-1 w-3 h-3 rounded-full bg-emerald-500 border-2 border-surface-1"></div>
+                    <div class="bg-surface-2 rounded-lg p-3">
+                        <p class="text-[10px] text-emerald-400 font-semibold mb-1">MAXIMUM SECURITY ACHIEVED</p>
+                        <ul class="text-[10px] text-gray-500 space-y-1 list-disc list-inside">
+                            <li>HttpOnly: JS cannot access refresh token</li>
+                            <li>Secure: Only sent over HTTPS</li>
+                            <li>SameSite=Strict: CSRF protection</li>
+                            <li>Path=/api/auth: Limited exposure</li>
+                            <li>Single-use: Theft detection</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Models -->
+<section id="models" class="max-w-4xl mx-auto px-6 pb-16">
+    <h2 class="text-xl font-bold text-white mb-1">Key Models</h2>
+    <p class="text-sm text-gray-500 mb-5">User supports both auth methods. RefreshToken tracks rotation and revocation.</p>
+    <div class="grid md:grid-cols-2 gap-4">
+        <div class="rounded-xl overflow-hidden border border-surface-4/50">
+            <div class="px-4 py-2 bg-surface-2 border-b border-surface-4/50"><span class="text-xs text-gray-400">User.cs — key properties</span></div>
+            <pre class="p-4 bg-surface-1 overflow-x-auto"><code class="language-csharp">public class User : BaseEntity
+{
+    public string Username { get; set; }
+    public string Email { get; set; }
+    public string? PasswordHash { get; set; }   // null for SSO
+    public string? AuthProvider { get; set; }    // "local"|"google"|"github"
+    public string? ExternalUserId { get; set; }  // OAuth provider ID
+    public bool EmailConfirmed { get; set; }
+
+    public ICollection&lt;RefreshToken&gt; RefreshTokens { get; set; }
+    public ICollection&lt;UserAnswer&gt; UserAnswers { get; set; }
+}</code></pre>
+        </div>
+        <div class="rounded-xl overflow-hidden border border-surface-4/50">
+            <div class="px-4 py-2 bg-surface-2 border-b border-surface-4/50"><span class="text-xs text-gray-400">RefreshToken.cs — key properties</span></div>
+            <pre class="p-4 bg-surface-1 overflow-x-auto"><code class="language-csharp">public class RefreshToken : BaseEntity
+{
+    public string Token { get; set; }           // 512-bit random
+    public DateTime ExpiresAt { get; set; }     // 7 days
+    public bool IsRevoked { get; set; }         // true after rotation
+    public int UserId { get; set; }
+    public User User { get; set; }
+    public string? CreatedByIp { get; set; }
+    public string? ReplacedByToken { get; set; }
+}</code></pre>
+        </div>
+    </div>
+</section>
+
+<!-- Services -->
+<section id="services" class="max-w-4xl mx-auto px-6 pb-16">
+    <h2 class="text-xl font-bold text-white mb-1">Services</h2>
+    <p class="text-sm text-gray-500 mb-5">Token generation with HMAC-SHA256 signing and cryptographically secure refresh tokens.</p>
+    <div class="rounded-xl overflow-hidden border border-surface-4/50">
+        <div class="px-4 py-2 bg-surface-2 border-b border-surface-4/50"><span class="text-xs text-gray-400">TokenService.cs — key methods</span></div>
+        <pre class="p-4 bg-surface-1 overflow-x-auto"><code class="language-csharp">public string GenerateAccessToken(User user)
+{
+    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.SecretKey));
+    var claims = new[]
+    {
+        new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+        new Claim(JwtRegisteredClaimNames.Email, user.Email),
+        new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+        new Claim("auth_provider", user.AuthProvider ?? "local")
+    };
+
+    var token = new JwtSecurityToken(
+        issuer: _jwtSettings.Issuer,
+        audience: _jwtSettings.Audience,
+        claims: claims,
+        expires: DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes),
+        signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256));
+
+    return new JwtSecurityTokenHandler().WriteToken(token);
+}
+
+public RefreshTokenResponse GenerateRefreshToken()
+{
+    var bytes = new byte[64];
+    using var rng = RandomNumberGenerator.Create();
+    rng.GetBytes(bytes);
+
+    return new RefreshTokenResponse
+    {
+        Token = Convert.ToBase64String(bytes),
+        ExpiresAt = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays)
+    };
+}</code></pre>
+    </div>
+</section>
+
+<!-- Endpoints -->
+<section id="endpoints" class="max-w-4xl mx-auto px-6 pb-16">
+    <h2 class="text-xl font-bold text-white mb-1">API Endpoints</h2>
+    <p class="text-sm text-gray-500 mb-5">Minimal API group with Swagger tags. OAuth providers are conditionally registered.</p>
+    <div class="bg-surface-1 border border-surface-4/50 rounded-xl overflow-hidden">
+        <table class="w-full text-sm">
+            <thead><tr class="border-b border-surface-4/30">
+                <th class="text-left px-4 py-2.5 text-gray-500 font-medium text-xs">Method</th>
+                <th class="text-left px-4 py-2.5 text-gray-500 font-medium text-xs">Endpoint</th>
+                <th class="text-left px-4 py-2.5 text-gray-500 font-medium text-xs">Auth</th>
+                <th class="text-left px-4 py-2.5 text-gray-500 font-medium text-xs">Description</th>
+            </tr></thead>
+            <tbody class="divide-y divide-surface-4/20 text-xs">
+                <tr><td class="px-4 py-2"><span class="bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded font-mono">GET</span></td><td class="px-4 py-2 font-mono text-gray-300">/api</td><td class="px-4 py-2 text-gray-500">Public</td><td class="px-4 py-2 text-gray-400">API root + configured providers</td></tr>
+                <tr><td class="px-4 py-2"><span class="bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded font-mono">GET</span></td><td class="px-4 py-2 font-mono text-gray-300">/api/docs</td><td class="px-4 py-2 text-gray-500">Public</td><td class="px-4 py-2 text-gray-400">This documentation page</td></tr>
+                <tr><td class="px-4 py-2"><span class="bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded font-mono">GET</span></td><td class="px-4 py-2 font-mono text-gray-300">/api/auth/providers</td><td class="px-4 py-2 text-gray-500">Public</td><td class="px-4 py-2 text-gray-400">List available auth providers</td></tr>
+                <tr><td class="px-4 py-2"><span class="bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded font-mono">POST</span></td><td class="px-4 py-2 font-mono text-gray-300">/api/auth/register</td><td class="px-4 py-2 text-gray-500">Public</td><td class="px-4 py-2 text-gray-400">Create account with email/password</td></tr>
+                <tr><td class="px-4 py-2"><span class="bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded font-mono">POST</span></td><td class="px-4 py-2 font-mono text-gray-300">/api/auth/login</td><td class="px-4 py-2 text-gray-500">Public</td><td class="px-4 py-2 text-gray-400">Sign in with email/password</td></tr>
+                <tr><td class="px-4 py-2"><span class="bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded font-mono">POST</span></td><td class="px-4 py-2 font-mono text-gray-300">/api/auth/refresh</td><td class="px-4 py-2 text-gray-500">Cookie</td><td class="px-4 py-2 text-gray-400">Rotate refresh token (HttpOnly cookie)</td></tr>
+                <tr><td class="px-4 py-2"><span class="bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded font-mono">GET</span></td><td class="px-4 py-2 font-mono text-gray-300">/api/auth/google/login</td><td class="px-4 py-2 text-gray-500">—</td><td class="px-4 py-2 text-gray-400">Redirect to Google (if configured)</td></tr>
+                <tr><td class="px-4 py-2"><span class="bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded font-mono">GET</span></td><td class="px-4 py-2 font-mono text-gray-300">/api/auth/github/login</td><td class="px-4 py-2 text-gray-500">—</td><td class="px-4 py-2 text-gray-400">Redirect to GitHub (if configured)</td></tr>
+                <tr><td class="px-4 py-2"><span class="bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded font-mono">POST</span></td><td class="px-4 py-2 font-mono text-gray-300">/api/auth/logout</td><td class="px-4 py-2 text-emerald-400">Required</td><td class="px-4 py-2 text-gray-400">Revoke token + clear HttpOnly cookie</td></tr>
+                <tr><td class="px-4 py-2"><span class="bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded font-mono">GET</span></td><td class="px-4 py-2 font-mono text-gray-300">/api/auth/me</td><td class="px-4 py-2 text-emerald-400">Required</td><td class="px-4 py-2 text-gray-400">Get current user profile</td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- Frontend -->
+<section id="frontend" class="max-w-4xl mx-auto px-6 pb-16">
+    <h2 class="text-xl font-bold text-white mb-1">Frontend Integration</h2>
+    <p class="text-sm text-gray-500 mb-5">Axios interceptor with automatic 401 → refresh → retry. Refresh token is handled automatically via HttpOnly cookie.</p>
+    <div class="rounded-xl overflow-hidden border border-surface-4/50">
+        <div class="px-4 py-2 bg-surface-2 border-b border-surface-4/50"><span class="text-xs text-gray-400">api.ts — Axios with auto-refresh (HttpOnly Cookie)</span></div>
+        <pre class="p-4 bg-surface-1 overflow-x-auto"><code class="language-bash">// Only access token in memory - refresh token is in HttpOnly cookie!
+let accessToken: string | null = null;
+
+const api = axios.create({ 
+  baseURL: "/api",
+  withCredentials: true  // Important: Send cookies with requests
+});
+
+// Add access token to requests
+api.interceptors.request.use((config) => {
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
+  }
+  return config;
+});
+
+// Handle 401 → auto refresh
+api.interceptors.response.use(
+  (res) => res,
+  async (error) => {
+    const req = error.config;
+    
+    // If 401 and not already retried
+    if (error.response?.status === 401 && !req._retry) {
+      req._retry = true;
+      
+      try {
+        // Just call refresh - browser sends HttpOnly cookie automatically!
+        // No need to send refresh token in body
+        const { data } = await axios.post("/api/auth/refresh", null, {
+          withCredentials: true
+        });
+        
+        // Only access token comes in response body
+        accessToken = data.accessToken;
+        req.headers.Authorization = `Bearer ${data.accessToken}`;
+        
+        return api(req);  // Retry original request
+      } catch {
+        // Refresh failed - redirect to login
+        accessToken = null;
+        window.location.href = "/login";
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Login function
+export async function login(email: string, password: string) {
+  const { data } = await api.post("/auth/login", { email, password });
+  accessToken = data.accessToken;
+  // Refresh token is now in HttpOnly cookie - we don't touch it!
+  return data.user;
+}
+
+// Logout function
+export async function logout() {
+  await api.post("/auth/logout");
+  accessToken = null;
+  // HttpOnly cookie is cleared by the server
+}</code></pre>
+    </div>
+    
+    <!-- Comparison -->
+    <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-5 mt-4">
+        <h3 class="text-white text-sm font-semibold mb-3">Before vs After</h3>
+        <div class="grid md:grid-cols-2 gap-4">
+            <div class="bg-surface-2 rounded-lg p-3 border border-red-500/20">
+                <h4 class="text-red-400 text-xs font-semibold mb-2">Before (Less Secure)</h4>
+                <ul class="text-[10px] text-gray-500 space-y-1 font-mono">
+                    <li>• Refresh token in JS memory</li>
+                    <li>• XSS can steal it</li>
+                    <li>• Visible in DevTools</li>
+                    <li>• Frontend manages token</li>
+                </ul>
+            </div>
+            <div class="bg-surface-2 rounded-lg p-3 border border-emerald-500/20">
+                <h4 class="text-emerald-400 text-xs font-semibold mb-2">After (Maximum Security)</h4>
+                <ul class="text-[10px] text-gray-500 space-y-1 font-mono">
+                    <li>• Refresh token in HttpOnly cookie</li>
+                    <li>• JS cannot access it</li>
+                    <li>• Hidden from DevTools</li>
+                    <li>• Browser handles automatically</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Security -->
+<section id="security" class="max-w-4xl mx-auto px-6 pb-16">
+    <h2 class="text-xl font-bold text-white mb-5">Security Best Practices (Maximum Protection)</h2>
+    <div class="grid md:grid-cols-2 gap-3">
+        <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-4">
+            <h4 class="text-white text-sm font-medium mb-1">HttpOnly Cookie (Refresh Token)</h4>
+            <p class="text-xs text-gray-500">JavaScript cannot access. XSS attacks cannot steal refresh tokens.</p>
+        </div>
+        <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-4">
+            <h4 class="text-white text-sm font-medium mb-1">Secure Flag (HTTPS Only)</h4>
+            <p class="text-xs text-gray-500">Cookies only sent over HTTPS. Prevents network sniffing attacks.</p>
+        </div>
+        <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-4">
+            <h4 class="text-white text-sm font-medium mb-1">SameSite=Strict (CSRF Protection)</h4>
+            <p class="text-xs text-gray-500">Cookies only sent for same-site requests. Blocks CSRF attacks.</p>
+        </div>
+        <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-4">
+            <h4 class="text-white text-sm font-medium mb-1">15-min Access Tokens</h4>
+            <p class="text-xs text-gray-500">Limits exposure window. Stale tokens are useless quickly.</p>
+        </div>
+        <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-4">
+            <h4 class="text-white text-sm font-medium mb-1">Single-Use Refresh Rotation</h4>
+            <p class="text-xs text-gray-500">Each refresh revokes old token. Stolen tokens can't be reused.</p>
+        </div>
+        <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-4">
+            <h4 class="text-white text-sm font-medium mb-1">HSTS (1 Year + Preload)</h4>
+            <p class="text-xs text-gray-500">Forces HTTPS. Prevents downgrade attacks. Added to preload list.</p>
+        </div>
+        <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-4">
+            <h4 class="text-white text-sm font-medium mb-1">BCrypt (Cost 12)</h4>
+            <p class="text-xs text-gray-500">~250ms per hash. Built-in salt. Resistant to rainbow tables.</p>
+        </div>
+        <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-4">
+            <h4 class="text-white text-sm font-medium mb-1">Per-IP Rate Limiting</h4>
+            <p class="text-xs text-gray-500">Auth: 10 req/15min. Global: 100 req/min. Blocks brute force.</p>
+        </div>
+        <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-4">
+            <h4 class="text-white text-sm font-medium mb-1">Cross-Origin Isolation</h4>
+            <p class="text-xs text-gray-500">COOP, COEP, CORP headers. Prevents Spectre-type attacks.</p>
+        </div>
+        <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-4">
+            <h4 class="text-white text-sm font-medium mb-1">Content Security Policy</h4>
+            <p class="text-xs text-gray-500">Strict CSP. Blocks inline scripts, restricts resource loading.</p>
+        </div>
+        <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-4">
+            <h4 class="text-white text-sm font-medium mb-1">ClockSkew = Zero</h4>
+            <p class="text-xs text-gray-500">No 5-min default tolerance. Tokens expire exactly when exp says.</p>
+        </div>
+        <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-4">
+            <h4 class="text-white text-sm font-medium mb-1">Structured Error Responses</h4>
+            <p class="text-xs text-gray-500">No stack traces leaked. Consistent JSON error format with traceId.</p>
+        </div>
+        <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-4">
+            <h4 class="text-white text-sm font-medium mb-1">Dynamic OAuth Providers</h4>
+            <p class="text-xs text-gray-500">Only registered if configured. App runs without OAuth secrets.</p>
+        </div>
+        <div class="bg-surface-1 border border-surface-4/50 rounded-xl p-4">
+            <h4 class="text-white text-sm font-medium mb-1">No Server Banner</h4>
+            <p class="text-xs text-gray-500">Removes Server/X-Powered-By headers. Hides tech stack.</p>
+        </div>
+    </div>
+</section>
+
+<footer class="border-t border-surface-4/50 py-6 px-6">
+    <div class="max-w-4xl mx-auto flex items-center justify-between text-[11px] text-gray-600">
+        <span>InterviewPrep API v1.0 — .NET 10 + EF Core 9 + PostgreSQL</span>
+        <span id="gen-date"></span>
+    </div>
+</footer>
+
+</main>
+</div>
+
+<script>
+hljs.highlightAll();
+document.getElementById('gen-date').textContent = new Date().toLocaleDateString();
+
+function copyCode(btn) {
+    const code = btn.closest('.rounded-xl,div').querySelector('code');
+    if (code) navigator.clipboard.writeText(code.textContent).then(() => {
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy', 1500);
+    });
+}
+
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('.nav-link');
+const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+        if (e.isIntersecting) {
+            navLinks.forEach(l => l.classList.remove('active'));
+            const link = document.querySelector(`.nav-link[href="#${e.target.id}"]`);
+            if (link) link.classList.add('active');
+        }
+    });
+}, { rootMargin: '-20% 0px -70% 0px' });
+sections.forEach(s => obs.observe(s));
+</script>
+</body>
+</html>
