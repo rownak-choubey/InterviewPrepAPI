@@ -1,23 +1,30 @@
+using InterviewPrepAPI.Configuration;
+using InterviewPrepAPI.Extensions;
+using InterviewPrepAPI.Localization;
+using InterviewPrepAPI.Logging;
+using Microsoft.Extensions.Logging;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddFileLogger(Path.Combine(builder.Environment.ContentRootPath, "logs"));
 
-builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+builder.Services
+    .AddAppLocalization()
+    .AddDatabase(builder.Configuration)
+    .AddAuth(builder.Configuration)
+    .AddCorsPolicy(builder.Configuration)
+    .AddCustomRateLimiting()
+    .AddResponseCompression()
+    .AddRequestLimits()
+    .AddAppServices()
+    .AddApiExplorer();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
-
-app.UseHttpsRedirection();
-
-app.UseAuthorization();
-
-app.MapControllers();
+app.UseSecurityPipeline();
+app.UseAppLocalization();
+app.MapAppEndpoints();
 
 app.Run();

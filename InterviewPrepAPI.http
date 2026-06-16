@@ -1,6 +1,8 @@
-@InterviewPrepAPI_HostAddress = http://localhost:5197
+@InterviewPrepAPI_HostAddress = https://localhost:7183
+@InterviewPrepAPI_HttpAddress = http://localhost:5197
 
-GET {{InterviewPrepAPI_HostAddress}}/weatherforecast/
+### Get OpenAPI spec
+GET {{InterviewPrepAPI_HttpAddress}}/openapi/v1.json
 Accept: application/json
 
 ###
