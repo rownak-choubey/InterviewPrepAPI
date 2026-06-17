@@ -16,7 +16,7 @@ services:
       retries: 5
 
   api:
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-your-org}/interviewprep-api:latest
+    image: ${OCIR_IMAGE:-mumbai.ocir.io/<YOUR_TENANCY_NAMESPACE>/interviewprep-api}:latest
     container_name: interviewprep-api
     restart: unless-stopped
     ports:

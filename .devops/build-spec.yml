@@ -1,0 +1,20 @@
+version: 0.1
+component: build
+timeoutInSeconds: 600
+runAs: root
+
+steps:
+  - name: Build and Push Docker Image
+    command: |
+      echo "Logging in to OCIR..."
+      echo $OCIR_AUTH_TOKEN | docker login $OCIR_REGISTRY -u $OCIR_USERNAME --password-stdin
+
+      echo "Building Docker image..."
+      docker build -t $OCIR_REPO:$BITBUCKET_COMMIT .
+      docker tag $OCIR_REPO:$BITBUCKET_COMMIT $OCIR_REPO:latest
+
+      echo "Pushing to OCIR..."
+      docker push $OCIR_REPO:$BITBUCKET_COMMIT
+      docker push $OCIR_REPO:latest
+
+      echo "Build complete."

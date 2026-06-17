@@ -9,7 +9,7 @@ on:
 env:
   DOTNET_VERSION: 10.0.x
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: ${{ github.repository_owner }}/interviewprep-api
 
 jobs:
   ci:
