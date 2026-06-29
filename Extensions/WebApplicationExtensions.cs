@@ -15,10 +15,11 @@ public static class WebApplicationExtensions
         app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
         app.UseMiddleware<SecurityHeadersMiddleware>();
 
-        if (!app.Environment.IsDevelopment())
+        if (!app.Environment.IsProduction())
+        {
             app.UseHsts();
-
-        app.UseHttpsRedirection();
+            app.UseHttpsRedirection();
+        }
         app.UseCors("Restricted");
 
         app.UseStaticFiles(new StaticFileOptions
@@ -53,11 +54,32 @@ public static class WebApplicationExtensions
     {
         var configuredProviders = GetConfiguredProviders(app.Configuration);
 
+        app.MapHealthEndpoint();
         app.MapApiRoot(configuredProviders);
         app.MapAuthEndpoints(configuredProviders);
         app.MapDocsPage();
 
         return app;
+    }
+
+    private static void MapHealthEndpoint(this WebApplication app)
+    {
+        app.MapGet("/health", async (HttpContext context, IServiceProvider services) =>
+        {
+            try
+            {
+                var db = services.GetRequiredService<Data.AppDbContext>();
+                var canConnect = await db.Database.CanConnectAsync();
+                if (!canConnect)
+                    return Results.StatusCode(503);
+
+                return Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow });
+            }
+            catch
+            {
+                return Results.StatusCode(503);
+            }
+        });
     }
 
     private static void MapApiRoot(this WebApplication app, List<string> providers)

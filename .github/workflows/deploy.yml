@@ -2,14 +2,17 @@ name: Build & Deploy
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
 
 env:
-  DOTNET_VERSION: 10.0.x
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/interviewprep-api
+  DOTNET_VERSION: "10.0.x"
+  REGISTRY: mumbai.ocir.io
+  IMAGE_NAME: choubeyrownak/interviewprep-api
 
 jobs:
   ci:
@@ -34,29 +37,32 @@ jobs:
 
   cd:
     name: Deploy to Oracle Cloud
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/master'
     needs: [ci]
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Log in to GitHub Container Registry
+      - name: Set image tag
+        id: tag
+        run: echo "IMAGE_TAG=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to OCIR
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.OCIR_USERNAME }}
+          password: ${{ secrets.OCIR_AUTH_TOKEN }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.IMAGE_TAG }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
       - name: Deploy to Oracle VM
         uses: appleboy/ssh-action@v1.2.0
@@ -64,20 +70,27 @@ jobs:
           host: ${{ secrets.ORACLE_VM_HOST }}
           username: ${{ secrets.ORACLE_VM_USER }}
           key: ${{ secrets.ORACLE_VM_SSH_KEY }}
-          port: ${{ secrets.ORACLE_VM_PORT || 22 }}
           script: |
             set -e
 
             cd /home/${{ secrets.ORACLE_VM_USER }}/interviewprep
 
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo "${{ secrets.OCIR_AUTH_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ secrets.OCIR_USERNAME }} --password-stdin
 
             docker compose pull api
 
-            POSTGRES_DB="${{ vars.POSTGRES_DB }}" \
-            POSTGRES_USER="${{ vars.POSTGRES_USER }}" \
             POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}" \
-            OCI_VAULT_ID="${{ vars.OCI_VAULT_ID }}" \
+            OCI_VAULT_ID="${{ secrets.OCI_VAULT_ID }}" \
             docker compose up -d --remove-orphans
 
             docker image prune -f
+
+            echo "Waiting for API to be healthy..."
+            for i in $(seq 1 30); do
+              if curl -sf http://127.0.0.1:8080/health > /dev/null 2>&1; then
+                echo "API is healthy!"
+                exit 0
+              fi
+              sleep 2
+            done
+            echo "WARNING: API health check timed out after 60s"
