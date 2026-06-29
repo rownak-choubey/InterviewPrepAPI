@@ -46,11 +46,11 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-interviewprep_db}
-      POSTGRES_USER: ${POSTGRES_USER:-interviewprep}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Must set POSTGRES_PASSWORD}
+      POSTGRES_DB: interviewprep_db
+      POSTGRES_USER: interviewprep
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-interviewprep} -d ${POSTGRES_DB:-interviewprep_db}"]
+      test: ["CMD-SHELL", "pg_isready -U interviewprep -d interviewprep_db"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -64,8 +64,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    env_file:
-      - .env
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
@@ -73,11 +71,82 @@ services:
       ConnectionStrings__Port: "5432"
       ConnectionStrings__Database: interviewprep_db
       ConnectionStrings__Username: interviewprep
+      ConnectionStrings__Password: ${POSTGRES_PASSWORD}
+
+  frontend:
+    image: ap-mumbai-1.ocir.io/bmipfqr326qf/interviewprep-frontend:latest
+    container_name: interviewprep-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    environment:
+      NEXT_PUBLIC_API_URL: http://144.24.99.5:8080
+
+  nginx:
+    image: nginx:alpine
+    container_name: interviewprep-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - frontend
+      - api
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
 
 volumes:
   postgres_data:
 COMPOSE_EOF
 echo "docker-compose.yml created."
+
+# Create nginx.conf
+cat > nginx.conf << 'NGINX_EOF'
+events {
+    worker_connections 1024;
+}
+
+http {
+    upstream frontend {
+        server frontend:3000;
+    }
+
+    upstream api {
+        server api:8080;
+    }
+
+    server {
+        listen 80;
+
+        location / {
+            proxy_pass http://frontend;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location /api/ {
+            proxy_pass http://api;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location /health {
+            proxy_pass http://api/health;
+            access_log off;
+        }
+    }
+}
+NGINX_EOF
+echo "nginx.conf created."
 
 # 5. Create .env file
 echo "[5/6] Creating .env file..."

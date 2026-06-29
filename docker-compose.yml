@@ -33,5 +33,28 @@ services:
       ConnectionStrings__Username: interviewprep
       ConnectionStrings__Password: ${POSTGRES_PASSWORD}
 
+  frontend:
+    image: ap-mumbai-1.ocir.io/bmipfqr326qf/interviewprep-frontend:latest
+    container_name: interviewprep-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    environment:
+      NEXT_PUBLIC_API_URL: http://144.24.99.5:8080
+
+  nginx:
+    image: nginx:alpine
+    container_name: interviewprep-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - frontend
+      - api
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+
 volumes:
   postgres_data:
