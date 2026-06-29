@@ -5,13 +5,12 @@ services:
     restart: unless-stopped
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    env_file:
-      - .env
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-interviewprep_db}
-      POSTGRES_USER: ${POSTGRES_USER:-interviewprep}
+      POSTGRES_DB: interviewprep_db
+      POSTGRES_USER: interviewprep
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-interviewprep} -d ${POSTGRES_DB:-interviewprep_db}"]
+      test: ["CMD-SHELL", "pg_isready -U interviewprep -d interviewprep_db"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -25,8 +24,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    env_file:
-      - .env
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
@@ -34,6 +31,7 @@ services:
       ConnectionStrings__Port: "5432"
       ConnectionStrings__Database: interviewprep_db
       ConnectionStrings__Username: interviewprep
+      ConnectionStrings__Password: ${POSTGRES_PASSWORD}
 
 volumes:
   postgres_data:
