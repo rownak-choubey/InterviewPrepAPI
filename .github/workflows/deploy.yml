@@ -12,7 +12,7 @@ concurrency:
 env:
   DOTNET_VERSION: "10.0.x"
   REGISTRY: mumbai.ocir.io
-  IMAGE_NAME: choubeyrownak/interviewprep-api
+  IMAGE_NAME: bmipfqr326qf/interviewprep-api
 
 jobs:
   ci:

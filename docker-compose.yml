@@ -16,7 +16,7 @@ services:
       retries: 5
 
   api:
-    image: mumbai.ocir.io/choubeyrownak/interviewprep-api:latest
+    image: ap-mumbai-1.ocir.io/bmipfqr326qf/interviewprep-api:latest
     container_name: interviewprep-api
     restart: unless-stopped
     ports:
