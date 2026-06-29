@@ -41,6 +41,12 @@ builder.Services
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<InterviewPrepAPI.Data.AppDbContext>();
+    db.Database.Migrate();
+}
+
 app.UseSecurityPipeline();
 app.UseAppLocalization();
 app.MapAppEndpoints();
