@@ -7,10 +7,10 @@ set -e
 echo "=== InterviewPrep VM Setup ==="
 
 # 1. Install Docker
-echo "[1/5] Installing Docker..."
+echo "[1/6] Installing Docker..."
 if ! command -v docker &> /dev/null; then
     sudo apt-get update
-    sudo apt-get install -y docker.io docker-compose-plugin
+    sudo apt-get install -y docker.io docker-compose
     sudo systemctl enable docker
     sudo systemctl start docker
     sudo usermod -aG docker $USER
@@ -20,7 +20,7 @@ else
 fi
 
 # 2. Install Nginx (reverse proxy)
-echo "[2/5] Installing Nginx..."
+echo "[2/6] Installing Nginx..."
 if ! command -v nginx &> /dev/null; then
     sudo apt-get install -y nginx
     sudo systemctl enable nginx
@@ -31,12 +31,12 @@ else
 fi
 
 # 3. Create project directory
-echo "[3/5] Creating project directory..."
+echo "[3/6] Creating project directory..."
 mkdir -p ~/interviewprep
 cd ~/interviewprep
 
 # 4. Create docker-compose.yml
-echo "[4/5] Creating docker-compose.yml..."
+echo "[4/6] Creating docker-compose.yml..."
 cat > docker-compose.yml << 'COMPOSE_EOF'
 services:
   db:
@@ -75,7 +75,7 @@ COMPOSE_EOF
 echo "docker-compose.yml created."
 
 # 5. Create .env file
-echo "[5/5] Creating .env file..."
+echo "[5/6] Creating .env file..."
 if [ ! -f .env ]; then
     read -p "Enter POSTGRES_PASSWORD: " -s POSTGRES_PASSWORD
     echo
@@ -92,46 +92,16 @@ else
     echo ".env file already exists. Skipping."
 fi
 
-# 6. Configure Nginx reverse proxy
-echo "[+] Configuring Nginx..."
-sudo tee /etc/nginx/sites-available/interviewprep > /dev/null << 'NGINX_EOF'
-server {
-    listen 80;
-    server_name _;
-
-    location / {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection keep-alive;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-        proxy_read_timeout 300s;
-        proxy_connect_timeout 75s;
-    }
-
-    location /health {
-        proxy_pass http://127.0.0.1:8080/health;
-        access_log off;
-    }
-}
-NGINX_EOF
-
-sudo ln -sf /etc/nginx/sites-available/interviewprep /etc/nginx/sites-enabled/
-sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t
-sudo systemctl reload nginx
-echo "Nginx configured."
+# 6. Login to OCIR
+echo "[6/6] Logging in to OCIR..."
+echo "Enter your OCIR auth token when prompted:"
+docker login ap-mumbai-1.ocir.io -u "bmipfqr326qf/choubey.rownak@gmail.com"
+echo "OCIR login configured."
 
 echo ""
 echo "=== Setup Complete ==="
 echo ""
 echo "Next steps:"
-echo "  1. Add this VM's public IP to GitHub Secrets as ORACLE_VM_HOST"
-echo "  2. Generate SSH key: ssh-keygen -t ed25519 -f ~/.ssh/github_deploy -N ''"
-echo "  3. Add the PRIVATE key (~/.ssh/github_deploy) to GitHub Secrets as ORACLE_VM_SSH_KEY"
-echo "  4. Add this public key to VM: cat ~/.ssh/github_deploy.pub >> ~/.ssh/authorized_keys"
-echo "  5. Set GitHub secrets: OCIR_USERNAME, OCIR_AUTH_TOKEN, POSTGRES_PASSWORD, OCI_VAULT_ID"
-echo "  6. Push to master branch to trigger deployment!"
+echo "  1. Verify OCIR login: docker pull ap-mumbai-1.ocir.io/bmipfqr326qf/interviewprep-api:latest"
+echo "  2. Start services: cd ~/interviewprep && docker compose up -d"
+echo "  3. Check status: docker compose ps"

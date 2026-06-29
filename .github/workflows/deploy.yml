@@ -11,7 +11,7 @@ concurrency:
 
 env:
   DOTNET_VERSION: "10.0.x"
-  REGISTRY: mumbai.ocir.io
+  REGISTRY: ap-mumbai-1.ocir.io
   IMAGE_NAME: bmipfqr326qf/interviewprep-api
 
 jobs:
@@ -75,12 +75,10 @@ jobs:
 
             cd /home/${{ secrets.ORACLE_VM_USER }}/interviewprep
 
-            echo "${{ secrets.OCIR_AUTH_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ secrets.OCIR_USERNAME }} --password-stdin
+            echo "${{ secrets.OCIR_AUTH_TOKEN }}" | docker login ${{ env.REGISTRY }} -u "${{ secrets.OCIR_USERNAME }}" --password-stdin
 
             docker compose pull api
 
-            POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}" \
-            OCI_VAULT_ID="${{ secrets.OCI_VAULT_ID }}" \
             docker compose up -d --remove-orphans
 
             docker image prune -f
