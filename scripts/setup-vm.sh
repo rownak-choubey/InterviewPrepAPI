@@ -64,10 +64,15 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    env_file:
+      - .env
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      Oci__VaultId: ${OCI_VAULT_ID:?Must set OCI_VAULT_ID}
+      ConnectionStrings__Host: db
+      ConnectionStrings__Port: "5432"
+      ConnectionStrings__Database: interviewprep_db
+      ConnectionStrings__Username: interviewprep
 
 volumes:
   postgres_data:

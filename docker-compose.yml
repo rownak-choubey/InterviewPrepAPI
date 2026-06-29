@@ -30,6 +30,10 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Host: db
+      ConnectionStrings__Port: "5432"
+      ConnectionStrings__Database: interviewprep_db
+      ConnectionStrings__Username: interviewprep
 
 volumes:
   postgres_data:
