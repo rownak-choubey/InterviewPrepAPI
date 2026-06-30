@@ -75,6 +75,9 @@ jobs:
 
             cd /home/${{ secrets.ORACLE_VM_USER }}/interviewprep
 
+            # Write .env with DB password from GitHub Secrets
+            echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" > .env
+
             echo "${{ secrets.OCIR_AUTH_TOKEN }}" | docker login ${{ env.REGISTRY }} -u "${{ secrets.OCIR_USERNAME }}" --password-stdin
 
             docker compose down
